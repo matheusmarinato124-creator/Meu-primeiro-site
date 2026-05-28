@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Escolar</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="fade-in">
+
+    <div class="theme-switch-container">
+        <button class="btn-theme" onclick="alternarTema()">Alternar Tema 🌓</button>
+    </div>
+
+    <main class="split-container">
+        <div class="left-panel">
+            <div class="button-group">
+                <button class="btn-role" onclick="selecionarPerfil('Diretor')">Diretor</button>
+                <button class="btn-role" onclick="selecionarPerfil('Professor')">Professor</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <h1 class="greeting"><span class="typewriter">Olá, seja bem vindo(a)</span></h1>
+            <img src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80" alt="Ambiente Escolar" class="welcome-image">
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

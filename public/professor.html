@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel do Professor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard-container fade-in">
+        <aside class="sidebar slide-in-left">
+            <div class="sidebar-title">Diário Digital</div>
+            <nav class="menu-group">
+                <button class="menu-item active slide-in-left delay-1" onclick="mostrarAba('chamada', this)">📅 Fazer Chamada</button>
+                <button class="menu-item slide-in-left delay-2" onclick="mostrarAba('turmas', this)">🏫 Turmas</button>
+                <button class="menu-item slide-in-left delay-3" onclick="mostrarAba('relatorios', this)">📊 Relatórios Excel</button>
+            </nav>
+            <button class="menu-item" onclick="localStorage.clear(); window.location.href='/';" style="margin-top: auto; border: 1px solid #FF4444; color: #FF4444; justify-content: center;">Sair</button>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar slide-in-up">
+                <div class="user-welcome" id="nome-professor">Bem-vindo(a)</div>
+                <button class="btn-theme" onclick="alternarTema()">Tema 🌓</button>
+            </header>
+
+            <section class="content-body">
+                <div id="aba-chamada" class="form-card pop-in delay-2" style="max-width: 900px;">
+                    <h2 style="font-size: 1.8rem; margin-bottom: 2rem;">Chamada Diária</h2>
+                    <div class="input-group">
+                        <label>Selecione a Turma</label>
+                        <select id="select-turma" onchange="carregarAlunos()"><option value="">Buscando turmas...</option></select>
+                    </div>
+                    <form id="form-chamada" onsubmit="salvarChamada(event)" style="display: none; margin-top: 2rem;">
+                        <div id="lista-alunos" style="margin-bottom: 2rem;"></div>
+                        <button type="submit" class="btn-primary">Registrar no Diário</button>
+                    </form>
+                </div>
+
+                <div id="aba-turmas" style="display: none; max-width: 900px;">
+                    <h2 style="font-size: 1.8rem; margin-bottom: 2rem;">Lista de Alunos por Turma</h2>
+                    <div class="input-group" style="max-width: 400px;">
+                        <label>Selecione a Turma para Consultar</label>
+                        <select id="select-visualizar-turma" onchange="visualizarAlunosTurma()"><option value="">Buscando turmas...</option></select>
+                    </div>
+                    <div class="table-container" id="container-visualizar-turma" style="display: none;">
+                        <table class="data-table">
+                            <thead><tr><th>ID Aluno</th><th>Nome Completo</th></tr></thead>
+                            <tbody id="tabela-visualizar-alunos"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="aba-relatorios" style="display: none; max-width: 950px;">
+                    <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">Frequência Estilo Planilha</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Selecione a turma para carregar os dados e liberar a exportação do Excel.</p>
+                    
+                    <div class="input-group" style="max-width: 400px; margin-bottom: 2rem;">
+                        <label>Escolha a Turma para Analisar</label>
+                        <select id="select-turma-relatorio" onchange="gerarRelatorio()"><option value="">Buscando turmas...</option></select>
+                    </div>
+
+                    <div id="wrapper-btn-excel" style="display: none; margin-bottom: 2rem;">
+                        <button class="btn-excel" onclick="exportarParaExcel()">📥 Gerar Relatório Excel</button>
+                    </div>
+
+                    <div class="table-container" id="container-relatorio" style="display: none;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome do Aluno</th>
+                                    <th>Presenças</th>
+                                    <th>Faltas</th>
+                                    <th>Justificativas</th>
+                                    <th>Frequência</th>
+                                    <th>Alertas Automáticos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-relatorio"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('nome-professor').innerText = 'Professor: ' + JSON.parse(localStorage.getItem('usuarioLogado')).nome;
+        let dadosRelatorioAtual = [];
+
+        async function init() {
+            const res = await fetch('/api/turmas');
+            const turmas = await res.json();
+            const options = '<option value="">Selecione uma turma...</option>' + turmas.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+            
+            document.getElementById('select-turma').innerHTML = options;
+            document.getElementById('select-visualizar-turma').innerHTML = options;
+            document.getElementById('select-turma-relatorio').innerHTML = options;
+        }
+        init();
+
+        function mostrarAba(aba, btn) {
+            document.getElementById('aba-chamada').style.display = aba === 'chamada' ? 'block' : 'none';
+            document.getElementById('aba-turmas').style.display = aba === 'turmas' ? 'block' : 'none';
+            document.getElementById('aba-relatorios').style.display = aba === 'relatorios' ? 'block' : 'none';
+            
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // === LÓGICA DA ABA TURMAS ===
+        async function visualizarAlunosTurma() {
+            const id = document.getElementById('select-visualizar-turma').value;
+            const container = document.getElementById('container-visualizar-turma');
+            if(!id) { container.style.display = 'none'; return; }
+
+            const res = await fetch(`/api/turmas/${id}/alunos`);
+            const alunos = await res.json();
+            
+            const tbody = document.getElementById('tabela-visualizar-alunos');
+            if(alunos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Nenhum aluno matriculado nesta turma.</td></tr>';
+            } else {
+                tbody.innerHTML = alunos.map(a => `<tr><td>#${a.id}</td><td><strong>${a.nome}</strong></td></tr>`).join('');
+            }
+            container.style.display = 'block';
+        }
+
+        // === LÓGICA DA CHAMADA ===
+        async function carregarAlunos() {
+            const turmaId = document.getElementById('select-turma').value;
+            const formChamada = document.getElementById('form-chamada');
+            const lista = document.getElementById('lista-alunos');
+            if (!turmaId) { formChamada.style.display = 'none'; return; }
+
+            const res = await fetch(`/api/turmas/${turmaId}/alunos`);
+            const alunos = await res.json();
+            
+            if(alunos.length === 0) {
+                lista.innerHTML = '<p style="padding:1.5rem;">Nenhum aluno cadastrado nesta turma.</p>';
+            } else {
+                lista.innerHTML = alunos.map(aluno => `
+                    <div class="student-row">
+                        <span style="font-size: 1.1rem; font-weight: 500;">${aluno.nome}</span>
+                        <div class="radio-group">
+                            <label class="radio-presente"><input type="radio" name="aluno_${aluno.id}" value="Presente" required> Presente</label>
+                            <label class="radio-ausente"><input type="radio" name="aluno_${aluno.id}" value="Ausente" required> Ausente</label>
+                            <label class="radio-justificado"><input type="radio" name="aluno_${aluno.id}" value="Justificado" required> Justificado</label>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            formChamada.style.display = 'block';
+        }
+
+        async function salvarChamada(e) {
+            e.preventDefault();
+            const turmaId = document.getElementById('select-turma').value;
+            const presencas = Array.from(document.querySelectorAll('input[type="radio"]:checked')).map(radio => ({
+                aluno_id: radio.name.split('_')[1], status: radio.value
+            }));
+            await fetch('/api/chamadas', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ turma_id: turmaId, data: new Date().toISOString().split('T')[0], presencas }) });
+            alert('Chamada arquivada e dados atualizados nos relatórios!');
+            document.getElementById('form-chamada').style.display = 'none';
+            document.getElementById('select-turma').value = '';
+        }
+
+        // === LÓGICA DOS RELATÓRIOS EXCEL ===
+        async function gerarRelatorio() {
+            const turmaId = document.getElementById('select-turma-relatorio').value;
+            const container = document.getElementById('container-relatorio');
+            const wrapperBtn = document.getElementById('wrapper-btn-excel');
+            const tbody = document.getElementById('tabela-relatorio');
+            
+            if (!turmaId) { 
+                container.style.display = 'none'; 
+                wrapperBtn.style.display = 'none'; 
+                return; 
+            }
+
+            const res = await fetch(`/api/relatorios/turma/${turmaId}`);
+            dadosRelatorioAtual = await res.json();
+
+            if(dadosRelatorioAtual.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Sem registros de chamadas anteriores.</td></tr>';
+                wrapperBtn.style.display = 'none';
+            } else {
+                tbody.innerHTML = dadosRelatorioAtual.map(aluno => {
+                    const total = aluno.total_aulas;
+                    let freq = total === 0 ? 100 : Math.round(((aluno.presencas + aluno.justificadas) / total) * 100);
+                    
+                    let badge = '<span class="badge badge-success">Regular</span>';
+                    if(aluno.ausencias >= 3 || freq < 75) badge = '<span class="badge badge-danger">Risco de Reprovação</span>';
+                    else if(aluno.ausencias > 0) badge = '<span class="badge badge-warning">Alerta de Faltas</span>';
+
+                    return `<tr>
+                        <td><strong>${aluno.nome}</strong></td>
+                        <td>${aluno.presencas}</td>
+                        <td style="color:#dc3545; font-weight:bold;">${aluno.ausencias}</td>
+                        <td>${aluno.justificadas}</td>
+                        <td><strong>${freq}%</strong></td>
+                        <td>${badge}</td>
+                    </tr>`;
+                }).join('');
+                
+                // Exibe o botão Excel e a tabela
+                wrapperBtn.style.display = 'block';
+            }
+            container.style.display = 'block';
+        }
+
+        function exportarParaExcel() {
+            if(dadosRelatorioAtual.length === 0) return alert("Sem dados disponíveis!");
+
+            const select = document.getElementById('select-turma-relatorio');
+            const nomeTurma = select.options[select.selectedIndex].text;
+
+            let csvConteudo = "\uFEFF"; // Garante acentuação correta no Excel
+            csvConteudo += "Nome do Aluno;Presenças;Faltas;Justificativas;Porcentagem Frequência;Situação\n";
+
+            dadosRelatorioAtual.forEach(aluno => {
+                const total = aluno.total_aulas;
+                let freq = total === 0 ? 100 : Math.round(((aluno.presencas + aluno.justificadas) / total) * 100);
+                let situacao = "Regular";
+                if(aluno.ausencias >= 3 || freq < 75) situacao = "Risco de Reprovacao";
+                else if(aluno.ausencias > 0) situacao = "Alerta de Faltas";
+
+                csvConteudo += `${aluno.nome};${aluno.presencas};${aluno.ausencias};${aluno.justificadas};${freq}%;${situacao}\n`;
+            });
+
+            const blob = new Blob([csvConteudo], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Relatorio_Frequencia_${nomeTurma.replace(/ /g, "_")}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

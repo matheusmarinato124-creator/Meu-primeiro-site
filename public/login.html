@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Sistema Escolar</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="fade-in">
+    
+    <div class="login-split-layout">
+        <div class="login-image-side slide-in-left">
+            <div>
+                <h1 class="slide-in-up delay-1" style="font-size: 3.5rem; margin-bottom: 1.5rem; letter-spacing: 1px;">Gestão Escolar</h1>
+                <p class="slide-in-up delay-2" style="font-size: 1.3rem; opacity: 0.9; line-height: 1.6;">Conectando diretores, professores e alunos em um ambiente moderno e ágil.</p>
+            </div>
+        </div>
+
+        <div class="login-form-side slide-in-left delay-2">
+            <form id="form-login" class="pop-in delay-3">
+                <h2 style="font-size: 2.2rem; margin-bottom: 1rem;">Acesso <span id="label-perfil" style="color: var(--primary);"></span></h2>
+                <p style="color: var(--text-secondary); margin-bottom: 3rem; font-size: 1.1rem;">Insira suas credenciais para continuar</p>
+
+                <div class="input-group">
+                    <label>Acesso (Matrícula ou Nome)</label>
+                    <input type="text" id="acesso" placeholder="Digite seu acesso..." required>
+                </div>
+                <div class="input-group">
+                    <label>Senha</label>
+                    <input type="password" id="senha" placeholder="••••••••" required>
+                </div>
+                
+                <p id="mensagem-erro" style="color: #FF4444; margin-bottom: 1.5rem; font-size: 0.95rem; min-height: 20px;"></p>
+                
+                <button type="submit" class="btn-primary">Entrar na Plataforma</button>
+                <button type="button" onclick="window.location.href='/'" style="background: transparent; color: var(--text-secondary); border: none; margin-top: 2rem; cursor: pointer; text-decoration: underline; width: 100%; font-size: 1rem;">Voltar para o Início</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        const perfil = localStorage.getItem('perfilAtivo') || 'Usuário';
+        document.getElementById('label-perfil').innerText = perfil;
+
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const acesso = document.getElementById('acesso').value;
+            const senha = document.getElementById('senha').value;
+            const msgErro = document.getElementById('mensagem-erro');
+
+            const resposta = await fetch('/api/login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ acesso, senha, perfil })
+            });
+            const dados = await resposta.json();
+
+            if (dados.success) {
+                localStorage.setItem('usuarioLogado', JSON.stringify(dados.user));
+                document.body.classList.add('fade-out');
+                setTimeout(() => {
+                    window.location.href = perfil === 'Professor' ? '/professor' : '/diretor';
+                }, 500);
+            } else {
+                msgErro.innerText = dados.message;
+            }
+        });
+    </script>
+</body>
+</html>
